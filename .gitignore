@@ -1,0 +1,9 @@
+node_modules/
+.plasmo/
+build/
+*.log
+.env
+.env.*
+.DS_Store
+.vscode/
+*.tsbuildinfo

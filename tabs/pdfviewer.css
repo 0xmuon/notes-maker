@@ -1,0 +1,116 @@
+/*
+ * PDF.js text-layer styles, ported from `pdfjs-dist/web/pdf_viewer.css`
+ * (Apache-2.0). We can't import the upstream stylesheet directly because
+ * Parcel rejects the `url()` references it makes for icons we don't use,
+ * so we keep just the rules our viewer needs to lay out the text layer
+ * accurately enough that browser selection lines up with the rendered
+ * canvas.
+ *
+ * The crucial rule is the per-span `font-size` / `transform` block: PDF.js
+ * sets `--font-height`, `--scale-x` and `--rotate` on every text span and
+ * relies on this CSS to translate them into a sized, positioned glyph.
+ * Without it every span collapses to `font-size: 0` and selection wraps
+ * around the page randomly.
+ */
+
+.pdf-pages {
+  padding: 16px 0 64px;
+}
+
+.pdfPage {
+  box-sizing: content-box !important;
+  position: relative;
+  margin: 16px auto;
+  background: #fff;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+}
+
+.pdfPage canvas {
+  display: block;
+  pointer-events: none;
+}
+
+/* ---- text layer ---- */
+
+.textLayer {
+  position: absolute;
+  text-align: initial;
+  inset: 0;
+  overflow: clip;
+  opacity: 1;
+  line-height: 1;
+  -webkit-text-size-adjust: none;
+  text-size-adjust: none;
+  forced-color-adjust: none;
+  transform-origin: 0 0;
+  caret-color: CanvasText;
+  z-index: 2;
+  user-select: text;
+  -webkit-user-select: text;
+  cursor: text;
+
+  --min-font-size: 1;
+  --text-scale-factor: calc(var(--total-scale-factor) * var(--min-font-size));
+  --min-font-size-inv: calc(1 / var(--min-font-size));
+}
+
+.textLayer.highlighting {
+  touch-action: none;
+}
+
+.textLayer :is(span, br) {
+  color: transparent;
+  position: absolute;
+  white-space: pre;
+  cursor: text;
+  transform-origin: 0% 0%;
+}
+
+.textLayer > :not(.markedContent),
+.textLayer .markedContent span:not(.markedContent) {
+  z-index: 1;
+  --font-height: 0;
+  font-size: calc(var(--text-scale-factor) * var(--font-height));
+  --scale-x: 1;
+  --rotate: 0deg;
+  transform: rotate(var(--rotate)) scaleX(var(--scale-x))
+    scale(var(--min-font-size-inv));
+}
+
+.textLayer .markedContent {
+  display: contents;
+}
+
+.textLayer span[role="img"] {
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: default;
+}
+
+.textLayer ::selection {
+  background: rgba(99, 102, 241, 0.28);
+}
+
+.textLayer br::selection {
+  background: transparent;
+}
+
+/*
+ * `endOfContent` is the trick PDF.js uses to keep cross-paragraph
+ * selections clean: when the user is dragging, it expands to fill the
+ * page (`top: 0`) and acts as a selection terminator so the browser
+ * stops trying to wrap the selection through visually unrelated spans.
+ */
+.textLayer .endOfContent {
+  display: block;
+  position: absolute;
+  inset: 100% 0 0;
+  z-index: 0;
+  cursor: default;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.textLayer.selecting .endOfContent {
+  top: 0;
+}

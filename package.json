@@ -1,0 +1,78 @@
+{
+  "name": "notes-maker",
+  "displayName": "Notes Maker — highlight to Markdown",
+  "version": "0.4.0",
+  "description": "Highlight webpages and PDFs into clean, contextual Markdown notes. Drafts persist locally. Download as .md whenever you want.",
+  "author": "khush",
+  "scripts": {
+    "dev": "plasmo dev",
+    "build": "plasmo build",
+    "package": "plasmo package"
+  },
+  "dependencies": {
+    "pdfjs-dist": "^5.6.205",
+    "plasmo": "0.90.5",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "turndown": "7.2.0",
+    "turndown-plugin-gfm": "1.0.2"
+  },
+  "devDependencies": {
+    "@types/chrome": "0.0.281",
+    "@types/node": "22.7.5",
+    "@types/react": "18.3.11",
+    "@types/react-dom": "18.3.0",
+    "@types/turndown": "5.0.5",
+    "autoprefixer": "10.4.20",
+    "postcss": "8.4.47",
+    "prettier": "3.3.3",
+    "tailwindcss": "3.4.13",
+    "typescript": "5.6.2"
+  },
+  "manifest": {
+    "name": "Notes Maker",
+    "short_name": "Notes Maker",
+    "permissions": [
+      "storage",
+      "downloads",
+      "activeTab",
+      "scripting",
+      "sidePanel",
+      "contextMenus",
+      "tabs",
+      "declarativeNetRequest",
+      "webNavigation"
+    ],
+    "host_permissions": [
+      "<all_urls>"
+    ],
+    "web_accessible_resources": [
+      {
+        "resources": [
+          "tabs/pdfviewer.html",
+          "*.worker.js",
+          "*.worker.mjs"
+        ],
+        "matches": [
+          "<all_urls>"
+        ]
+      }
+    ],
+    "commands": {
+      "save-highlight": {
+        "suggested_key": {
+          "default": "Ctrl+Shift+H",
+          "mac": "Command+Shift+H"
+        },
+        "description": "Save the current selection as a highlight"
+      },
+      "_execute_action": {
+        "suggested_key": {
+          "default": "Ctrl+Shift+N",
+          "mac": "Command+Shift+N"
+        },
+        "description": "Open Notes Maker side panel"
+      }
+    }
+  }
+}
