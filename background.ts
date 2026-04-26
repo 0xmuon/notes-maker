@@ -53,7 +53,7 @@ async function syncPdfRedirectRule(): Promise<void> {
       removeRuleIds: [PDF_REDIRECT_RULE_ID]
     });
 
-    if (!settings.autoOpenPdfsInViewer) return;
+    if (!settings.extensionEnabled || !settings.autoOpenPdfsInViewer) return;
 
     const rule: chrome.declarativeNetRequest.Rule = {
       id: PDF_REDIRECT_RULE_ID,
@@ -120,8 +120,18 @@ chrome.storage.onChanged.addListener((changes, area) => {
   if (changes[SETTINGS_STORAGE_KEY]) void syncPdfRedirectRule();
 });
 
+async function isExtensionEnabled(): Promise<boolean> {
+  try {
+    const s = await getSettings();
+    return s.extensionEnabled !== false;
+  } catch {
+    return true;
+  }
+}
+
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (info.menuItemId === "notes-maker-save") {
+    if (!(await isExtensionEnabled())) return;
     if (!tab?.id) return;
     await chrome.tabs.sendMessage(tab.id, {
       type: "trigger-save-from-shortcut"
@@ -139,6 +149,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 
 chrome.commands.onCommand.addListener(async (command) => {
   if (command !== "save-highlight") return;
+  if (!(await isExtensionEnabled())) return;
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab?.id) return;
   await chrome.tabs.sendMessage(tab.id, { type: "trigger-save-from-shortcut" });

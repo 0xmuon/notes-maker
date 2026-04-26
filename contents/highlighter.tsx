@@ -15,8 +15,11 @@ import {
   HIGHLIGHT_COLORS,
   type Highlight,
   type HighlightColor,
-  type PageEntry
+  type PageEntry,
+  type Settings
 } from "~lib/types";
+
+const SETTINGS_STORAGE_KEY = "notes-maker:settings";
 
 export const config: PlasmoCSConfig = {
   matches: ["<all_urls>"],
@@ -78,7 +81,7 @@ function paintHighlights(highlights: Highlight[]) {
 
 const FALLBACK_CLASS = "notes-maker-fallback-mark";
 
-function paintHighlightsFallback(highlights: Highlight[]) {
+function clearFallbackHighlights() {
   document.querySelectorAll(`.${FALLBACK_CLASS}`).forEach((el) => {
     const parent = el.parentNode;
     if (!parent) return;
@@ -86,6 +89,19 @@ function paintHighlightsFallback(highlights: Highlight[]) {
     parent.removeChild(el);
     parent.normalize();
   });
+}
+
+function clearAllPaintedHighlights() {
+  if (supportsHighlightApi) {
+    for (const c of HIGHLIGHT_COLORS) {
+      (CSS as any).highlights.delete(`notes-maker-${c}`);
+    }
+  }
+  clearFallbackHighlights();
+}
+
+function paintHighlightsFallback(highlights: Highlight[]) {
+  clearFallbackHighlights();
 
   for (const h of highlights) {
     const range = findRangeForAnchor(h.anchor);
@@ -136,9 +152,48 @@ export default function HighlighterCSUI() {
   const [busy, setBusy] = useState(false);
   const [confirmation, setConfirmation] = useState<string | null>(null);
   const [pageHighlights, setPageHighlights] = useState<Highlight[]>([]);
+  const [enabled, setEnabled] = useState(true);
+  const enabledRef = useRef(true);
+  enabledRef.current = enabled;
   const toolbarRef = useRef<HTMLDivElement | null>(null);
   const pageHighlightsRef = useRef<Highlight[]>([]);
   pageHighlightsRef.current = pageHighlights;
+
+  // Load + watch the master on/off setting.
+  useEffect(() => {
+    let cancelled = false;
+    chrome.storage.local.get(SETTINGS_STORAGE_KEY).then((out) => {
+      if (cancelled) return;
+      const s = (out[SETTINGS_STORAGE_KEY] as Partial<Settings> | undefined) ?? {};
+      setEnabled(s.extensionEnabled !== false);
+    });
+    const onChanged = (changes: {
+      [key: string]: chrome.storage.StorageChange;
+    }) => {
+      if (changes[SETTINGS_STORAGE_KEY]) {
+        const next = (changes[SETTINGS_STORAGE_KEY].newValue as
+          | Partial<Settings>
+          | undefined) ?? {};
+        setEnabled(next.extensionEnabled !== false);
+      }
+    };
+    chrome.storage.onChanged.addListener(onChanged);
+    return () => {
+      cancelled = true;
+      chrome.storage.onChanged.removeListener(onChanged);
+    };
+  }, []);
+
+  // Apply the on/off state: clear paint + hide toolbar when off,
+  // re-paint stored highlights when flipped back on.
+  useEffect(() => {
+    if (enabled) {
+      paintHighlights(pageHighlightsRef.current);
+    } else {
+      clearAllPaintedHighlights();
+      setTb(HIDDEN);
+    }
+  }, [enabled]);
 
   /**
    * Compute how the user's selection relates to existing highlights on
@@ -175,6 +230,10 @@ export default function HighlighterCSUI() {
   // 1. Listen for selection changes -> show/hide toolbar.
   useEffect(() => {
     const onSelectionChange = () => {
+      if (!enabledRef.current) {
+        setTb(HIDDEN);
+        return;
+      }
       const sel = window.getSelection();
       if (!sel || sel.rangeCount === 0 || sel.isCollapsed) {
         setTb(HIDDEN);
@@ -220,7 +279,9 @@ export default function HighlighterCSUI() {
       if (cancelled) return;
       const list = (resp.page as PageEntry | null)?.highlights ?? [];
       setPageHighlights(list);
-      requestAnimationFrame(() => paintHighlights(list));
+      requestAnimationFrame(() => {
+        if (enabledRef.current) paintHighlights(list);
+      });
     };
     load();
 
@@ -233,6 +294,7 @@ export default function HighlighterCSUI() {
 
     const onMessage = (msg: any) => {
       if (msg?.type === "trigger-save-from-shortcut") {
+        if (!enabledRef.current) return;
         const sel = window.getSelection();
         if (sel && !sel.isCollapsed && sel.toString().trim()) {
           const range = sel.getRangeAt(0);
@@ -256,7 +318,9 @@ export default function HighlighterCSUI() {
     let scheduled = 0;
     const obs = new MutationObserver(() => {
       window.clearTimeout(scheduled);
-      scheduled = window.setTimeout(() => paintHighlights(pageHighlights), 250);
+      scheduled = window.setTimeout(() => {
+        if (enabledRef.current) paintHighlights(pageHighlights);
+      }, 250);
     });
     obs.observe(document.body, {
       childList: true,
@@ -444,7 +508,7 @@ export default function HighlighterCSUI() {
 
   return (
     <>
-      {tb.visible && (
+      {enabled && tb.visible && (
         <div
           ref={toolbarRef}
           role="toolbar"

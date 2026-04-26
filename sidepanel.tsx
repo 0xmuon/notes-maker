@@ -22,6 +22,23 @@ import {
 
 type Tab = "page" | "notebooks" | "library" | "settings";
 
+const SETTINGS_STORAGE_KEY = "notes-maker:settings";
+
+async function readEnabled(): Promise<boolean> {
+  const out = await chrome.storage.local.get(SETTINGS_STORAGE_KEY);
+  const s = (out[SETTINGS_STORAGE_KEY] as { extensionEnabled?: boolean } | undefined) ?? {};
+  return s.extensionEnabled !== false;
+}
+
+async function writeEnabled(next: boolean): Promise<void> {
+  const out = await chrome.storage.local.get(SETTINGS_STORAGE_KEY);
+  const current =
+    (out[SETTINGS_STORAGE_KEY] as Record<string, unknown> | undefined) ?? {};
+  await chrome.storage.local.set({
+    [SETTINGS_STORAGE_KEY]: { ...current, extensionEnabled: next }
+  });
+}
+
 export default function SidePanel() {
   const [tab, setTab] = useState<Tab>("page");
   const [activeUrl, setActiveUrl] = useState<string>("");
@@ -33,6 +50,27 @@ export default function SidePanel() {
   const [query, setQuery] = useState<string>("");
   const [showPreview, setShowPreview] = useState<boolean>(false);
   const [openNotebookId, setOpenNotebookId] = useState<string | null>(null);
+  const [enabled, setEnabled] = useState<boolean>(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    readEnabled().then((v) => {
+      if (!cancelled) setEnabled(v);
+    });
+    const onChanged = (changes: { [key: string]: chrome.storage.StorageChange }) => {
+      if (changes[SETTINGS_STORAGE_KEY]) {
+        const next = (changes[SETTINGS_STORAGE_KEY].newValue as
+          | { extensionEnabled?: boolean }
+          | undefined) ?? {};
+        setEnabled(next.extensionEnabled !== false);
+      }
+    };
+    chrome.storage.onChanged.addListener(onChanged);
+    return () => {
+      cancelled = true;
+      chrome.storage.onChanged.removeListener(onChanged);
+    };
+  }, []);
 
   const refreshActiveTab = useCallback(async () => {
     const [t] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -112,7 +150,11 @@ export default function SidePanel() {
         }}
         pageCount={allPages.length}
         highlightCount={totalHighlights}
+        enabled={enabled}
+        onToggleEnabled={() => writeEnabled(!enabled)}
       />
+
+      {!enabled && <PausedBanner onResume={() => writeEnabled(true)} />}
 
       <DestinationBanner
         notebooks={notebooks}
@@ -189,12 +231,16 @@ function Header({
   tab,
   onChangeTab,
   pageCount,
-  highlightCount
+  highlightCount,
+  enabled,
+  onToggleEnabled
 }: {
   tab: Tab;
   onChangeTab: (t: Tab) => void;
   pageCount: number;
   highlightCount: number;
+  enabled: boolean;
+  onToggleEnabled: () => void;
 }) {
   const cls = (active: boolean) =>
     `px-2.5 py-1 text-[11px] rounded-full transition-colors ${
@@ -205,8 +251,13 @@ function Header({
 
   return (
     <header className="border-b border-ink-100 dark:border-ink-800 px-4 py-3 flex items-center justify-between gap-2">
-      <div>
-        <div className="text-sm font-semibold tracking-tight">Notes Maker</div>
+      <div className="min-w-0">
+        <div className="flex items-center gap-2">
+          <div className="text-sm font-semibold tracking-tight truncate">
+            Notes Maker
+          </div>
+          <PowerSwitch enabled={enabled} onToggle={onToggleEnabled} />
+        </div>
         <div className="text-[11px] text-ink-500">
           {pageCount} page{pageCount === 1 ? "" : "s"} · {highlightCount}{" "}
           highlight{highlightCount === 1 ? "" : "s"}
@@ -233,6 +284,64 @@ function Header({
         </button>
       </nav>
     </header>
+  );
+}
+
+function PowerSwitch({
+  enabled,
+  onToggle
+}: {
+  enabled: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={enabled}
+      onClick={onToggle}
+      title={
+        enabled
+          ? "Extension is on — click to pause highlighting"
+          : "Extension is paused — click to resume"
+      }
+      className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-amber-300 ${
+        enabled
+          ? "bg-emerald-500"
+          : "bg-ink-300 dark:bg-ink-700"
+      }`}>
+      <span
+        aria-hidden
+        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+          enabled ? "translate-x-4" : "translate-x-0.5"
+        }`}
+      />
+      <span className="sr-only">
+        {enabled ? "Turn extension off" : "Turn extension on"}
+      </span>
+    </button>
+  );
+}
+
+function PausedBanner({ onResume }: { onResume: () => void }) {
+  return (
+    <div
+      role="status"
+      className="border-b border-ink-100 dark:border-ink-800 px-4 py-2 bg-ink-100 dark:bg-ink-800/60 flex items-center gap-2">
+      <span className="inline-block w-2 h-2 rounded-full bg-ink-400 dark:bg-ink-500" />
+      <div className="flex-1 text-[12px] text-ink-700 dark:text-ink-200 leading-snug">
+        <span className="font-medium">Highlighting paused.</span>{" "}
+        <span className="text-ink-500">
+          The toolbar, shortcut, and PDF redirect are off. Saved notes are
+          still here.
+        </span>
+      </div>
+      <button
+        onClick={onResume}
+        className="text-[11px] px-2.5 py-1 rounded-md bg-ink-900 text-white dark:bg-white dark:text-ink-900 hover:opacity-90">
+        Resume
+      </button>
+    </div>
   );
 }
 
@@ -1292,30 +1401,47 @@ function PageCard({
 function SettingsPanel({ pages }: { pages: PageEntry[] }) {
   const [busy, setBusy] = useState(false);
   const [autoOpenPdfs, setAutoOpenPdfs] = useState<boolean>(true);
+  const [enabled, setEnabled] = useState<boolean>(true);
 
   useEffect(() => {
     let cancelled = false;
-    chrome.storage.local.get("notes-maker:settings").then((out) => {
+    chrome.storage.local.get(SETTINGS_STORAGE_KEY).then((out) => {
       if (cancelled) return;
-      const s = (out["notes-maker:settings"] as
-        | { autoOpenPdfsInViewer?: boolean }
+      const s = (out[SETTINGS_STORAGE_KEY] as
+        | { autoOpenPdfsInViewer?: boolean; extensionEnabled?: boolean }
         | undefined) ?? {};
       setAutoOpenPdfs(s.autoOpenPdfsInViewer ?? true);
+      setEnabled(s.extensionEnabled !== false);
     });
+    const onChanged = (changes: { [k: string]: chrome.storage.StorageChange }) => {
+      if (changes[SETTINGS_STORAGE_KEY]) {
+        const next = (changes[SETTINGS_STORAGE_KEY].newValue as
+          | { autoOpenPdfsInViewer?: boolean; extensionEnabled?: boolean }
+          | undefined) ?? {};
+        setAutoOpenPdfs(next.autoOpenPdfsInViewer ?? true);
+        setEnabled(next.extensionEnabled !== false);
+      }
+    };
+    chrome.storage.onChanged.addListener(onChanged);
     return () => {
       cancelled = true;
+      chrome.storage.onChanged.removeListener(onChanged);
     };
   }, []);
 
   const togglePdfs = async (next: boolean) => {
     setAutoOpenPdfs(next);
-    const out = await chrome.storage.local.get("notes-maker:settings");
+    const out = await chrome.storage.local.get(SETTINGS_STORAGE_KEY);
     const current =
-      (out["notes-maker:settings"] as Record<string, unknown> | undefined) ??
-      {};
+      (out[SETTINGS_STORAGE_KEY] as Record<string, unknown> | undefined) ?? {};
     await chrome.storage.local.set({
-      "notes-maker:settings": { ...current, autoOpenPdfsInViewer: next }
+      [SETTINGS_STORAGE_KEY]: { ...current, autoOpenPdfsInViewer: next }
     });
+  };
+
+  const toggleEnabled = async (next: boolean) => {
+    setEnabled(next);
+    await writeEnabled(next);
   };
 
   const openPdfViewer = async () => {
@@ -1341,6 +1467,37 @@ function SettingsPanel({ pages }: { pages: PageEntry[] }) {
 
   return (
     <div className="px-4 py-4 space-y-4 text-sm">
+      <section className="space-y-2">
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-ink-500">
+          Extension
+        </h3>
+        <div
+          className={`rounded-lg border p-3 flex items-start gap-3 ${
+            enabled
+              ? "border-emerald-200 bg-emerald-50/50 dark:bg-emerald-900/10 dark:border-emerald-900/40"
+              : "border-ink-200 bg-ink-50 dark:bg-ink-800/40 dark:border-ink-700"
+          }`}>
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <span
+                className={`inline-block w-2 h-2 rounded-full ${
+                  enabled ? "bg-emerald-500" : "bg-ink-400 dark:bg-ink-500"
+                }`}
+              />
+              <div className="text-[13px] font-medium">
+                {enabled ? "Notes Maker is on" : "Notes Maker is paused"}
+              </div>
+            </div>
+            <div className="text-[11px] text-ink-500 mt-1 leading-relaxed">
+              {enabled
+                ? "Highlighting toolbar, keyboard shortcut, and PDF redirect are active on every page."
+                : "The selection toolbar, keyboard shortcut, and PDF redirect are all off. Your saved notes remain available here."}
+            </div>
+          </div>
+          <PowerSwitch enabled={enabled} onToggle={() => toggleEnabled(!enabled)} />
+        </div>
+      </section>
+
       <section className="space-y-1.5">
         <h3 className="text-xs font-semibold uppercase tracking-wider text-ink-500">
           About your notes

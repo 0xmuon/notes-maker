@@ -95,6 +95,15 @@ export interface PageEntry {
 }
 
 export interface Settings {
+  /**
+   * Master switch for the extension. When false, the highlighter UI is
+   * suppressed everywhere: the floating toolbar is hidden, painted
+   * highlights are cleared from open pages, the keyboard shortcut and
+   * context menu won't save anything, and the PDF auto-redirect rule
+   * is removed. The side panel itself stays usable so the user can
+   * still browse, export, and re-enable.
+   */
+  extensionEnabled: boolean;
   defaultColor: HighlightColor;
   showFloatingToolbar: boolean;
   includeBreadcrumbsInExport: boolean;
@@ -108,6 +117,7 @@ export interface Settings {
 }
 
 export const DEFAULT_SETTINGS: Settings = {
+  extensionEnabled: true,
   defaultColor: "yellow",
   showFloatingToolbar: true,
   includeBreadcrumbsInExport: true,
