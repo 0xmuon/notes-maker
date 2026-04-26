@@ -4,7 +4,7 @@ _Last updated: April 26, 2026_
 
 Notes Maker is a Chrome extension that turns text selections from web pages and PDFs into local Markdown notes. **It does not collect, transmit, or sell any of your data.** Everything you highlight, every note you write, every notebook you create lives only on your computer, inside the Chrome profile that has the extension installed.
 
-This document explains, in plain language, exactly what the extension does and does not do with your information. It is written to satisfy the disclosure requirements of the Chrome Web Store and to be auditable against the source code at <https://github.com/> (link your repo here once published).
+This document explains, in plain language, exactly what the extension does and does not do with your information. It is written to satisfy the disclosure requirements of the Chrome Web Store and to be auditable against the source code at <https://github.com/0xmuon/notes-maker>.
 
 ---
 
@@ -117,4 +117,4 @@ If a future version of Notes Maker ever introduces functionality that affects th
 
 ## Contact
 
-Questions, concerns, or audit requests: open an issue on the project's GitHub repository, or email the maintainer listed in the extension's Chrome Web Store listing.
+Questions, concerns, or audit requests: open an issue at <https://github.com/0xmuon/notes-maker/issues>.

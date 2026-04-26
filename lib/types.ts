@@ -3,6 +3,8 @@ export type HighlightColor =
   | "green"
   | "blue"
   | "pink"
+  | "orange"
+  | "purple"
   | "red";
 
 export const HIGHLIGHT_COLORS: HighlightColor[] = [
@@ -10,6 +12,8 @@ export const HIGHLIGHT_COLORS: HighlightColor[] = [
   "green",
   "blue",
   "pink",
+  "orange",
+  "purple",
   "red"
 ];
 
@@ -18,6 +22,8 @@ export const COLOR_HEX: Record<HighlightColor, string> = {
   green: "#bbf7d0",
   blue: "#bfdbfe",
   pink: "#fbcfe8",
+  orange: "#fed7aa",
+  purple: "#ddd6fe",
   red: "#f87171"
 };
 
