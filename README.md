@@ -2,7 +2,9 @@
 
 > Highlight any webpage and turn it into clean, contextual Markdown notes. Drafts persist across browser sessions. Download as `.md` whenever you want.
 
-A Chrome extension built with [Plasmo](https://www.plasmo.com/) + React + TypeScript + Tailwind. Designed for one job: making it effortless to capture passages from blogs and articles into a single, well-formatted Markdown notebook.
+[AUTHOR's POV](https://github.com/0xmuon/notes-maker/blob/main/AUTHOR'S-POV.md)
+
+A Chrome extension built with [Plasmo](https://www.plasmo.com/) + React + TypeScript + Tailwind. Designed for one job: making it effortless to capture passages from blogs and articles into a single, well-formatted Markdown notebook,and have them highlighted on browser whenever you open 'em.
 
 ---
 
@@ -25,31 +27,6 @@ A Chrome extension built with [Plasmo](https://www.plasmo.com/) + React + TypeSc
 - **Keyboard + context menu.** `Ctrl+Shift+H` (or right-click → *Save selection to Notes Maker*) to capture without touching the toolbar.
 - **Drafts never get lost.** Everything is stored in `chrome.storage.local`. Closing the browser, tab, or even Chrome itself does not erase a single highlight.
 - **Robust to DOM changes.** Highlights are anchored using a text-quote scheme (prefix + exact + suffix), the same approach used by [Hypothesis](https://web.hypothes.is/) and the [W3C Web Annotation spec](https://www.w3.org/TR/annotation-model/). They survive most layout/SPA re-renders.
-
----
-
-## Install (load unpacked)
-
-```bash
-npm install
-npm run build
-```
-
-Then in Chrome (or any Chromium browser):
-
-1. Open `chrome://extensions`.
-2. Toggle **Developer mode** on (top right).
-3. Click **Load unpacked** and select the `build/chrome-mv3-prod/` folder.
-
-The extension icon appears in the toolbar. Click it to open the side panel — or press `Ctrl+Shift+N`.
-
-### Development mode (with HMR)
-
-```bash
-npm run dev
-```
-
-Then load `build/chrome-mv3-dev/` the same way. Changes to source files reload the extension automatically.
 
 ---
 
@@ -100,29 +77,31 @@ Once a PDF is open in the viewer, selecting text shows the same floating toolbar
 
 ---
 
-## Architecture
+# Contribution:
+## Install (load unpacked)
 
+```bash
+npm install
+npm run build
 ```
-notes-maker/
-├── background.ts                # Service worker: messaging, downloads, commands, PDF redirect rule
-├── sidepanel.tsx                # React side-panel UI
-├── contents/
-│   └── highlighter.tsx          # Content script: floating toolbar + highlight painting
-├── tabs/
-│   ├── pdfviewer.tsx            # Bundled PDF.js viewer (rendered as a chrome-extension tab page)
-│   └── pdfviewer.css            # Trimmed pdf.js text-layer styles
-├── lib/
-│   ├── types.ts                 # Highlight, PageEntry, Notebook, Message types
-│   ├── storage.ts               # chrome.storage.local helpers + URL keys
-│   ├── markdown.ts              # Turndown wrapper + page/library/notebook renderers
-│   ├── anchor.ts                # Text-quote range serialization & restoration
-│   ├── context.ts               # Heading-path detection + range cleanup
-│   └── messages.ts              # Typed sendMessage helpers
-├── style.css                    # Tailwind entry
-├── tailwind.config.js
-├── postcss.config.js
-└── package.json                 # Plasmo manifest config + scripts
+
+Then in Chrome (or any Chromium browser):
+
+1. Open `chrome://extensions`.
+2. Toggle **Developer mode** on (top right).
+3. Click **Load unpacked** and select the `build/chrome-mv3-prod/` folder.
+
+The extension icon appears in the toolbar. Click it to open the side panel — or press `Ctrl+Shift+N`.
+
+### Development mode (with HMR)
+
+```bash
+npm run dev
 ```
+
+Then load `build/chrome-mv3-dev/` the same way. Changes to source files reload the extension automatically.
+
+---
 
 ### How highlights re-find themselves
 
