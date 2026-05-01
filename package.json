@@ -1,7 +1,7 @@
 {
   "name": "notes-maker",
   "displayName": "Notes Maker — highlight to Markdown",
-  "version": "0.4.0",
+  "version": "0.1.0",
   "description": "Highlight webpages and PDFs into clean, contextual Markdown notes. Drafts persist locally. Download as .md whenever you want.",
   "author": "khush",
   "scripts": {
@@ -36,12 +36,10 @@
       "storage",
       "downloads",
       "activeTab",
-      "scripting",
       "sidePanel",
       "contextMenus",
       "tabs",
-      "declarativeNetRequest",
-      "webNavigation"
+      "declarativeNetRequest"
     ],
     "host_permissions": [
       "<all_urls>"

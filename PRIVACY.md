@@ -76,11 +76,10 @@ Chrome will surface the following permissions when you install the extension. Ea
 - **Read your data on all websites (`<all_urls>` host permission)** — required so the content script can read your text selection and inject the highlight toolbar on whatever page you're reading. We don't read anything you don't actively select.
 - **Storage (`storage`)** — to persist your highlights, notebooks, and settings on your device, as described above.
 - **Downloads (`downloads`)** — to write `.md` files when you click *Download this page .md*, *Download notebook .md*, or *Export all .md*. We never download anything without an explicit click.
-- **Active tab / scripting (`activeTab`, `scripting`)** — used by the side panel to scope highlights to the right page key (URL of the active tab) and by the keyboard shortcut handler to trigger a save inside the active tab.
+- **Active tab (`activeTab`)** — used by the side panel to scope highlights to the right page key (URL of the active tab) and by the keyboard shortcut handler to trigger a save inside the active tab.
 - **Tabs (`tabs`)** — used by the side panel to read the active tab's URL/title and by the *Open PDF in viewer* action to open a new tab pointing at the bundled viewer page.
 - **Side panel (`sidePanel`)** — to host the main UI in Chrome's side panel.
 - **Context menus (`contextMenus`)** — to add the *"Save selection to Notes Maker"* and *"Open PDF in Notes Maker viewer"* right-click options.
-- **Web navigation (`webNavigation`)** — used in conjunction with the PDF redirect rule below for fallback handling.
 - **Declarative net request (`declarativeNetRequest`)** — used **solely** to install one local rule that rewrites top-level navigations to `*.pdf` URLs into the extension's bundled PDF.js viewer, so that you can highlight inside PDFs. The rule never reaches the network, never tracks anything, and is removed entirely when you turn off *Auto-open PDFs in our viewer* in the side panel settings.
 
 We do not use, and have no plans to add: `webRequest`, `cookies`, `history`, `bookmarks`, `topSites`, `geolocation`, `identity`, `system.*`, or any other permission not listed above.
