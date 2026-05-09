@@ -254,10 +254,18 @@ export default function HighlighterCSUI() {
 
       const relation = computeRelation(range, pageHighlightsRef.current);
 
+      const rawLeft = rect.left + window.scrollX;
+      const pad = 8;
+      const maxW = 320;
+      const left = Math.max(
+        window.scrollX + pad,
+        Math.min(rawLeft, window.scrollX + window.innerWidth - maxW - pad)
+      );
+
       setTb({
         visible: true,
         top: rect.bottom + window.scrollY + 8,
-        left: rect.left + window.scrollX,
+        left,
         range,
         relation
       });
@@ -520,30 +528,46 @@ export default function HighlighterCSUI() {
             zIndex: 2147483647,
             display: "flex",
             alignItems: "center",
+            flexWrap: "wrap",
             gap: 8,
-            padding: "6px 10px",
-            background: "rgba(20,20,20,.94)",
+            rowGap: 6,
+            maxWidth: "min(calc(100vw - 16px), 420px)",
+            padding: "8px 12px",
+            background: "rgba(22,22,24,.96)",
             color: "#fff",
-            borderRadius: 999,
-            boxShadow: "0 6px 24px rgba(0,0,0,.28)",
-            backdropFilter: "blur(6px)",
+            borderRadius: 12,
+            boxShadow:
+              "0 4px 6px rgba(0,0,0,.12), 0 12px 28px rgba(0,0,0,.32)",
+            border: "1px solid rgba(255,255,255,.08)",
+            backdropFilter: "blur(8px)",
             fontFamily:
               "system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif",
             fontSize: 12,
-            lineHeight: 1
+            lineHeight: 1.25
           }}
           onMouseDown={(e) => e.stopPropagation()}>
-          {colorButtons}
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            {colorButtons}
+          </div>
 
           <span
             style={{
               width: 1,
-              height: 18,
-              background: "rgba(255,255,255,.18)"
+              alignSelf: "stretch",
+              minHeight: 20,
+              background: "rgba(255,255,255,.15)"
             }}
           />
 
-          <span style={{ opacity: 0.85, paddingRight: 4, userSelect: "none" }}>
+          <span
+            style={{
+              opacity: 0.88,
+              userSelect: "none",
+              flex: "1 1 120px",
+              minWidth: 0,
+              fontSize: 11,
+              lineHeight: 1.35
+            }}>
             {message}
           </span>
 
@@ -562,14 +586,15 @@ export default function HighlighterCSUI() {
                   handleUnhighlight();
                 }}
                 title="Remove this highlight from notes"
-                aria-label="Unhighlight"
+                aria-label="Remove highlight from notes"
                 style={{
-                  background: "transparent",
-                  border: "1px solid rgba(255,255,255,.35)",
+                  background: "rgba(255,255,255,.08)",
+                  border: "1px solid rgba(255,255,255,.22)",
                   color: "#fff",
-                  padding: "3px 8px",
+                  padding: "4px 10px",
                   fontSize: 11,
-                  borderRadius: 999,
+                  fontWeight: 600,
+                  borderRadius: 8,
                   cursor: "pointer",
                   display: "inline-flex",
                   alignItems: "center",
@@ -578,7 +603,7 @@ export default function HighlighterCSUI() {
                 <span aria-hidden style={{ fontSize: 13, lineHeight: 1 }}>
                   ✕
                 </span>
-                Unhighlight
+                Remove
               </button>
             </>
           )}
@@ -587,19 +612,24 @@ export default function HighlighterCSUI() {
 
       {confirmation && (
         <div
+          role="status"
+          aria-live="polite"
           style={{
             position: "fixed",
             bottom: 24,
             right: 24,
             zIndex: 2147483647,
-            background: "rgba(20,20,20,.94)",
+            background: "rgba(22,22,24,.96)",
             color: "#fff",
-            padding: "10px 14px",
+            padding: "12px 16px",
             borderRadius: 12,
-            boxShadow: "0 6px 24px rgba(0,0,0,.28)",
+            border: "1px solid rgba(255,255,255,.1)",
+            boxShadow:
+              "0 4px 6px rgba(0,0,0,.12), 0 12px 28px rgba(0,0,0,.28)",
             fontFamily:
               "system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif",
-            fontSize: 13
+            fontSize: 13,
+            maxWidth: "min(calc(100vw - 32px), 320px)"
           }}>
           {confirmation}
         </div>

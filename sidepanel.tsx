@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import "./style.css";
 
@@ -8,6 +8,7 @@ import {
   notebookToMarkdown,
   pageToMarkdown
 } from "~lib/markdown";
+import { EXTENSION_VERSION } from "~lib/version";
 import { sendMessage } from "~lib/messages";
 import { pageKeyForUrl } from "~lib/storage";
 import {
@@ -141,7 +142,7 @@ export default function SidePanel() {
   );
 
   return (
-    <div className="flex h-screen w-full flex-col bg-white text-ink-900 dark:bg-ink-900 dark:text-ink-50 font-sans">
+    <div className="flex h-screen w-full flex-col bg-ink-50/40 text-ink-900 dark:bg-ink-900 dark:text-ink-50 font-sans">
       <Header
         tab={tab}
         onChangeTab={(t) => {
@@ -152,6 +153,7 @@ export default function SidePanel() {
         highlightCount={totalHighlights}
         enabled={enabled}
         onToggleEnabled={() => writeEnabled(!enabled)}
+        activePageTitle={activeTitle}
       />
 
       {!enabled && <PausedBanner onResume={() => writeEnabled(true)} />}
@@ -233,7 +235,8 @@ function Header({
   pageCount,
   highlightCount,
   enabled,
-  onToggleEnabled
+  onToggleEnabled,
+  activePageTitle
 }: {
   tab: Tab;
   onChangeTab: (t: Tab) => void;
@@ -241,46 +244,75 @@ function Header({
   highlightCount: number;
   enabled: boolean;
   onToggleEnabled: () => void;
+  activePageTitle: string;
 }) {
   const cls = (active: boolean) =>
-    `px-2.5 py-1 text-[11px] rounded-full transition-colors ${
+    `focus-ring px-2.5 py-1.5 text-[12px] font-medium rounded-lg transition-colors ${
       active
-        ? "bg-ink-900 text-white dark:bg-white dark:text-ink-900"
-        : "text-ink-500 hover:text-ink-800 dark:hover:text-ink-100"
+        ? "bg-ink-900 text-white shadow-sm dark:bg-white dark:text-ink-900"
+        : "text-ink-600 hover:bg-ink-100/80 dark:text-ink-300 dark:hover:bg-ink-800/80"
     }`;
 
   return (
-    <header className="border-b border-ink-100 dark:border-ink-800 px-4 py-3 flex items-center justify-between gap-2">
-      <div className="min-w-0">
-        <div className="flex items-center gap-2">
-          <div className="text-sm font-semibold tracking-tight truncate">
-            Notes Maker
+    <header className="shrink-0 border-b border-ink-200/80 dark:border-ink-800 bg-white/90 dark:bg-ink-900/95 backdrop-blur-sm px-3 py-3 sm:px-4 flex flex-col gap-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <h1 className="text-[15px] font-semibold tracking-tight text-ink-900 dark:text-ink-50">
+              Notes Maker
+            </h1>
+            <PowerSwitch enabled={enabled} onToggle={onToggleEnabled} />
           </div>
-          <PowerSwitch enabled={enabled} onToggle={onToggleEnabled} />
-        </div>
-        <div className="text-[11px] text-ink-500">
-          {pageCount} page{pageCount === 1 ? "" : "s"} · {highlightCount}{" "}
-          highlight{highlightCount === 1 ? "" : "s"}
+          <p className="text-[11px] text-ink-500 mt-0.5 leading-snug">
+            {pageCount} page{pageCount === 1 ? "" : "s"} · {highlightCount}{" "}
+            highlight{highlightCount === 1 ? "" : "s"}
+            {tab === "page" && activePageTitle ? (
+              <>
+                <span className="text-ink-300 dark:text-ink-600 mx-1">·</span>
+                <span className="text-ink-600 dark:text-ink-300 truncate inline-block max-w-[200px] align-bottom">
+                  {activePageTitle}
+                </span>
+              </>
+            ) : null}
+          </p>
         </div>
       </div>
-      <nav className="flex items-center gap-1">
-        <button onClick={() => onChangeTab("page")} className={cls(tab === "page")}>
-          Page
+      <nav
+        className="flex flex-wrap gap-1"
+        role="tablist"
+        aria-label="Notes Maker sections">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === "page"}
+          onClick={() => onChangeTab("page")}
+          className={cls(tab === "page")}>
+          This page
         </button>
         <button
+          type="button"
+          role="tab"
+          aria-selected={tab === "notebooks"}
           onClick={() => onChangeTab("notebooks")}
           className={cls(tab === "notebooks")}>
           Notebooks
         </button>
         <button
+          type="button"
+          role="tab"
+          aria-selected={tab === "library"}
           onClick={() => onChangeTab("library")}
           className={cls(tab === "library")}>
           Library
         </button>
         <button
+          type="button"
+          role="tab"
+          aria-selected={tab === "settings"}
           onClick={() => onChangeTab("settings")}
-          className={cls(tab === "settings")}>
-          ⋯
+          className={cls(tab === "settings")}
+          title="Shortcuts, PDFs, and data">
+          More
         </button>
       </nav>
     </header>
@@ -305,7 +337,7 @@ function PowerSwitch({
           ? "Extension is on — click to pause highlighting"
           : "Extension is paused — click to resume"
       }
-      className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-amber-300 ${
+      className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus-ring ${
         enabled
           ? "bg-emerald-500"
           : "bg-ink-300 dark:bg-ink-700"
@@ -362,9 +394,20 @@ function DestinationBanner({
   onCreate: (name: string) => Promise<void>;
   onManage: () => void;
 }) {
+  const rootRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (e: PointerEvent) => {
+      const el = rootRef.current;
+      if (el && !el.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown, true);
+    return () => document.removeEventListener("pointerdown", onPointerDown, true);
+  }, [open]);
 
   const submit = async () => {
     const trimmed = name.trim();
@@ -379,39 +422,52 @@ function DestinationBanner({
 
   return (
     <div
-      className={`relative border-b border-ink-100 dark:border-ink-800 px-4 py-2.5 ${
+      ref={rootRef}
+      className={`relative shrink-0 border-b border-ink-200/80 dark:border-ink-800 px-3 py-2.5 sm:px-4 ${
         isActive
-          ? "bg-amber-50 dark:bg-amber-900/15"
-          : "bg-ink-50/50 dark:bg-ink-800/40"
+          ? "bg-amber-50/90 dark:bg-amber-900/20"
+          : "bg-white/60 dark:bg-ink-900/50"
       }`}>
       <div className="flex items-center gap-2">
         <span
-          className={`inline-block w-2 h-2 rounded-full ${
+          className={`inline-block w-2 h-2 shrink-0 rounded-full ${
             isActive ? "bg-amber-500" : "bg-ink-300 dark:bg-ink-600"
           }`}
         />
-        <span className="text-[11px] text-ink-500 uppercase tracking-wider">
-          Saving to
+        <span className="text-[10px] font-semibold text-ink-500 uppercase tracking-wider shrink-0">
+          New highlights →
         </span>
         <button
+          type="button"
+          aria-expanded={open}
+          aria-haspopup="listbox"
           onClick={() => setOpen((v) => !v)}
-          className="flex-1 flex items-center justify-between gap-2 px-2.5 py-1 text-[12px] rounded-md border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-900 hover:border-ink-300 dark:hover:border-ink-600">
+          className="focus-ring flex-1 flex items-center justify-between gap-2 min-h-[36px] px-3 py-1.5 text-[12px] rounded-lg border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-900 hover:border-ink-300 dark:hover:border-ink-600 shadow-sm">
           <span className="truncate text-left">
             {active ? (
               <>
-                <span className="font-medium">{active.name}</span>{" "}
-                <span className="text-ink-400">notebook</span>
+                <span className="font-semibold text-ink-900 dark:text-ink-50">
+                  {active.name}
+                </span>{" "}
+                <span className="text-ink-400 font-normal">notebook</span>
               </>
             ) : (
               <>
-                <span className="font-medium">Per page</span>{" "}
-                <span className="text-ink-400">
-                  · each page exports separately
+                <span className="font-semibold text-ink-900 dark:text-ink-50">
+                  This page only
+                </span>{" "}
+                <span className="text-ink-400 font-normal">
+                  · one .md per URL
                 </span>
               </>
             )}
           </span>
-          <span className="text-ink-400">▾</span>
+          <span
+            className={`text-ink-400 text-[10px] transition-transform ${
+              open ? "rotate-180" : ""
+            }`}>
+            ▾
+          </span>
         </button>
       </div>
 
@@ -540,40 +596,47 @@ function CurrentPagePanel({
   }
 
   return (
-    <div className="px-4 py-3 space-y-3">
-      <div className="rounded-lg border border-ink-100 dark:border-ink-800 p-3">
-        <div className="text-sm font-medium line-clamp-2">{page.title}</div>
+    <div className="px-3 py-3 sm:px-4 space-y-3">
+      <div className="rounded-xl border border-ink-200/80 dark:border-ink-800 bg-white dark:bg-ink-900/40 shadow-sm p-3.5">
+        <div className="text-[10px] font-semibold uppercase tracking-wider text-ink-400 mb-1">
+          Source
+        </div>
+        <div className="text-sm font-semibold text-ink-900 dark:text-ink-50 line-clamp-2 leading-snug">
+          {page.title}
+        </div>
         <a
           href={page.url}
           target="_blank"
           rel="noreferrer"
-          className="text-[11px] text-ink-500 hover:text-ink-800 dark:hover:text-ink-200 break-all">
+          className="text-[11px] text-ink-500 hover:text-amber-700 dark:hover:text-amber-300 break-all mt-1 inline-block">
           {page.url}
         </a>
-        <div className="mt-2 flex items-center gap-2 flex-wrap">
+        <div className="mt-3 flex items-center gap-2 flex-wrap">
           <button
+            type="button"
             onClick={() =>
               sendMessage({
                 type: "export-page",
                 payload: { pageKey: page.key }
               })
             }
-            className="text-xs px-2.5 py-1.5 rounded-md bg-ink-900 text-white dark:bg-white dark:text-ink-900 hover:opacity-90">
-            Download this page .md
+            className="focus-ring text-xs font-medium px-3 py-2 rounded-lg bg-ink-900 text-white dark:bg-white dark:text-ink-900 hover:opacity-95">
+            Download .md
           </button>
           <button
+            type="button"
             onClick={onTogglePreview}
-            className="text-xs px-2.5 py-1.5 rounded-md border border-ink-200 dark:border-ink-700 hover:bg-ink-50 dark:hover:bg-ink-800">
-            {showPreview ? "Hide preview" : "Preview .md"}
+            className="focus-ring text-xs font-medium px-3 py-2 rounded-lg border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-900 hover:bg-ink-50 dark:hover:bg-ink-800">
+            {showPreview ? "Hide preview" : "Preview"}
           </button>
-          <span className="text-[11px] text-ink-500 ml-auto">
-            {page.highlights.length} saved
+          <span className="text-[11px] text-ink-500 ml-auto tabular-nums">
+            {page.highlights.length} on this page
           </span>
         </div>
       </div>
 
       {showPreview && (
-        <pre className="rounded-lg border border-ink-100 dark:border-ink-800 bg-ink-50 dark:bg-ink-800 p-3 text-[11px] leading-relaxed whitespace-pre-wrap break-words font-mono max-h-72 overflow-auto scrollbar-thin">
+        <pre className="rounded-xl border border-ink-200/80 dark:border-ink-800 bg-ink-100/50 dark:bg-ink-800/60 p-3 text-[11px] leading-relaxed whitespace-pre-wrap break-words font-mono max-h-72 overflow-auto scrollbar-thin">
           {previewMd}
         </pre>
       )}
@@ -609,11 +672,29 @@ function HighlightCard({
   pageHighlights?: Highlight[];
   hideNotebookChip?: boolean;
 }) {
+  const actionsRef = useRef<HTMLDivElement>(null);
   const [editingNote, setEditingNote] = useState(false);
   const [note, setNote] = useState(h.note ?? "");
   const [movingOpen, setMovingOpen] = useState(false);
 
   useEffect(() => setNote(h.note ?? ""), [h.note]);
+
+  useEffect(() => {
+    if (!movingOpen) return;
+    const onPointerDown = (e: PointerEvent) => {
+      const el = actionsRef.current;
+      if (el && !el.contains(e.target as Node)) setMovingOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMovingOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown, true);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown, true);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [movingOpen]);
 
   const onPickColor = (c: HighlightColor) => {
     sendMessage({
@@ -665,7 +746,7 @@ function HighlightCard({
 
   return (
     <li
-      className="rounded-lg border border-ink-100 dark:border-ink-800 p-3 hover:border-ink-200 dark:hover:border-ink-700 transition-colors"
+      className="rounded-xl border border-ink-200/80 dark:border-ink-800 bg-white dark:bg-ink-900/30 p-3 shadow-sm hover:border-ink-300/80 dark:hover:border-ink-700 transition-colors"
       style={{
         boxShadow: `inset 4px 0 0 0 ${COLOR_HEX[h.color]}`
       }}>
@@ -693,7 +774,7 @@ function HighlightCard({
           {h.headingPath.join(" › ")}
         </div>
       )}
-      <blockquote className="text-[13px] leading-relaxed border-l-2 border-ink-200 dark:border-ink-700 pl-2 whitespace-pre-wrap">
+      <blockquote className="text-[13px] leading-relaxed text-ink-800 dark:text-ink-100 border-l-[3px] border-ink-200 dark:border-ink-600 pl-3 whitespace-pre-wrap">
         {h.text}
       </blockquote>
 
@@ -719,68 +800,82 @@ function HighlightCard({
         </div>
       )}
 
-      <div className="mt-2 flex items-center gap-1.5 flex-wrap">
-        {HIGHLIGHT_COLORS.map((c) => (
-          <button
-            key={c}
-            onClick={() => onPickColor(c)}
-            title={`Change to ${c}`}
-            className={`w-4 h-4 rounded-full border ${
-              h.color === c
-                ? "border-ink-900 dark:border-white"
-                : "border-ink-200 dark:border-ink-700"
-            }`}
-            style={{ background: COLOR_HEX[c] }}
-          />
-        ))}
+      <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:flex-wrap">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {HIGHLIGHT_COLORS.map((c) => (
+            <button
+              key={c}
+              type="button"
+              aria-label={`Highlight color ${c}`}
+              aria-pressed={h.color === c}
+              onClick={() => onPickColor(c)}
+              title={`Change to ${c}`}
+              className={`focus-ring w-5 h-5 rounded-full border-2 transition-transform hover:scale-110 ${
+                h.color === c
+                  ? "border-ink-900 dark:border-white ring-2 ring-ink-900/20 dark:ring-white/25"
+                  : "border-ink-200 dark:border-ink-600"
+              }`}
+              style={{ background: COLOR_HEX[c] }}
+            />
+          ))}
+        </div>
 
-        <div className="ml-auto flex items-center gap-2 text-[11px] relative">
+        <div
+          ref={actionsRef}
+          className="flex flex-wrap items-center gap-1 sm:ml-auto sm:justify-end text-[12px] relative">
           <a
             href={h.textFragmentUrl}
             target="_blank"
             rel="noreferrer"
-            className="text-ink-500 hover:text-ink-800 dark:hover:text-ink-200">
-            Open
+            className="focus-ring font-medium px-2 py-1 rounded-md text-ink-600 hover:bg-ink-100 dark:text-ink-300 dark:hover:bg-ink-800">
+            Open source
           </a>
           {!editingNote && !h.note && (
             <button
+              type="button"
               onClick={() => setEditingNote(true)}
-              className="text-ink-500 hover:text-ink-800 dark:hover:text-ink-200">
-              + Note
+              className="focus-ring font-medium px-2 py-1 rounded-md text-ink-600 hover:bg-ink-100 dark:text-ink-300 dark:hover:bg-ink-800">
+              Add note
             </button>
           )}
           <button
+            type="button"
             onClick={onCopy}
-            className="text-ink-500 hover:text-ink-800 dark:hover:text-ink-200">
+            className="focus-ring font-medium px-2 py-1 rounded-md text-ink-600 hover:bg-ink-100 dark:text-ink-300 dark:hover:bg-ink-800">
             Copy
           </button>
           <button
+            type="button"
+            aria-expanded={movingOpen}
             onClick={() => setMovingOpen((v) => !v)}
-            className="text-ink-500 hover:text-ink-800 dark:hover:text-ink-200">
-            Move
+            className="focus-ring font-medium px-2 py-1 rounded-md text-ink-600 hover:bg-ink-100 dark:text-ink-300 dark:hover:bg-ink-800">
+            Move…
           </button>
           <button
+            type="button"
             onClick={onDelete}
-            className="text-red-500 hover:text-red-600">
+            className="focus-ring font-medium px-2 py-1 rounded-md text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40">
             Delete
           </button>
 
           {movingOpen && (
-            <div className="absolute right-0 top-5 z-20 w-48 rounded-md border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-900 shadow-lg overflow-hidden">
+            <div className="absolute right-0 top-full mt-1 z-20 w-52 rounded-lg border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-900 shadow-lg overflow-hidden">
               <button
+                type="button"
                 onClick={() => onMove(null)}
-                className={`w-full text-left px-2.5 py-1.5 text-[11px] hover:bg-ink-50 dark:hover:bg-ink-800 ${
+                className={`focus-ring w-full text-left px-3 py-2 text-[12px] hover:bg-ink-50 dark:hover:bg-ink-800 ${
                   !h.notebookId ? "bg-ink-50 dark:bg-ink-800" : ""
                 }`}>
-                Per page (no notebook)
+                This page only
               </button>
               {notebooks.length > 0 && (
                 <div className="border-t border-ink-100 dark:border-ink-800">
                   {notebooks.map((nb) => (
                     <button
+                      type="button"
                       key={nb.id}
                       onClick={() => onMove(nb.id)}
-                      className={`w-full text-left px-2.5 py-1.5 text-[11px] hover:bg-ink-50 dark:hover:bg-ink-800 ${
+                      className={`focus-ring w-full text-left px-3 py-2 text-[12px] hover:bg-ink-50 dark:hover:bg-ink-800 ${
                         h.notebookId === nb.id
                           ? "bg-ink-50 dark:bg-ink-800"
                           : ""
@@ -816,50 +911,80 @@ function EmptyState({
     looksLikePdf && !url.startsWith(chrome.runtime.getURL(""));
 
   return (
-    <div className="px-6 py-10 text-center">
+    <div className="px-4 py-8 sm:px-6 text-center max-w-md mx-auto">
       {isInBuiltinPdfViewer && (
-        <div className="mb-4 px-3 py-2.5 rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-900/15 text-[12px] text-amber-900 dark:text-amber-200 text-left">
-          <div className="font-semibold mb-0.5">Open this PDF in the viewer?</div>
-          <div className="leading-relaxed">
-            Chrome's built-in PDF reader doesn't allow extensions to read text
-            selections. Reload it through Notes Maker's bundled viewer to
-            highlight as usual.
+        <div className="mb-5 px-3 py-3 rounded-xl border border-amber-300/80 bg-amber-50 dark:bg-amber-900/20 text-[12px] text-amber-950 dark:text-amber-100 text-left shadow-sm">
+          <div className="font-semibold mb-1">PDFs need the Notes Maker viewer</div>
+          <div className="leading-relaxed text-amber-900/90 dark:text-amber-100/90">
+            Chrome’s built-in PDF tab can’t expose text selections to extensions.
+            Open the file here to highlight like on a normal page.
           </div>
           <button
+            type="button"
             onClick={async () => {
               await sendMessage({
                 type: "open-pdf-viewer",
                 payload: { src: url }
               });
             }}
-            className="mt-2 px-2.5 py-1 text-[12px] rounded-md bg-amber-600 text-white hover:bg-amber-700">
+            className="focus-ring mt-3 w-full sm:w-auto px-3 py-2 text-[12px] font-medium rounded-lg bg-amber-600 text-white hover:bg-amber-700">
             Open in Notes Maker viewer
           </button>
         </div>
       )}
 
-      <div className="text-sm text-ink-500">No highlights on this page yet.</div>
-      <div className="mt-3 text-[12px] text-ink-400 leading-relaxed">
-        Select any text on{" "}
-        <span className="text-ink-700 dark:text-ink-200 break-all">
-          {title || url || "the page"}
-        </span>{" "}
-        and pick a color from the toolbar that pops up — or hit{" "}
-        <kbd className="px-1.5 py-0.5 border border-ink-200 dark:border-ink-700 rounded text-[10px]">
-          Ctrl+Shift+H
-        </kbd>{" "}
-        / <kbd className="px-1.5 py-0.5 border border-ink-200 dark:border-ink-700 rounded text-[10px]">⌘⇧H</kbd>.
+      <div className="text-[15px] font-semibold text-ink-800 dark:text-ink-100">
+        Nothing saved for this page yet
       </div>
+      <p className="mt-2 text-[12px] text-ink-500 leading-relaxed">
+        On{" "}
+        <span className="text-ink-700 dark:text-ink-200 font-medium break-all">
+          {title || url || "this tab"}
+        </span>
+        , select text — a toolbar appears under your selection.
+      </p>
+
+      <ol className="mt-5 text-left text-[12px] text-ink-600 dark:text-ink-300 space-y-2 rounded-xl border border-ink-200/80 dark:border-ink-800 bg-white dark:bg-ink-900/40 p-3.5 shadow-sm">
+        <li className="flex gap-2">
+          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-ink-900 text-[10px] font-bold text-white dark:bg-white dark:text-ink-900">
+            1
+          </span>
+          <span>Select the passage you care about.</span>
+        </li>
+        <li className="flex gap-2">
+          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-ink-900 text-[10px] font-bold text-white dark:bg-white dark:text-ink-900">
+            2
+          </span>
+          <span>
+            Tap a color — or press{" "}
+            <kbd className="px-1 py-0.5 rounded border border-ink-200 dark:border-ink-600 font-mono text-[10px]">
+              Ctrl+Shift+H
+            </kbd>{" "}
+            /{" "}
+            <kbd className="px-1 py-0.5 rounded border border-ink-200 dark:border-ink-600 font-mono text-[10px]">
+              ⌘⇧H
+            </kbd>
+            .
+          </span>
+        </li>
+        <li className="flex gap-2">
+          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-ink-900 text-[10px] font-bold text-white dark:bg-white dark:text-ink-900">
+            3
+          </span>
+          <span>Come back here to preview or download Markdown.</span>
+        </li>
+      </ol>
+
       {activeNotebook ? (
-        <div className="mt-3 text-[12px] text-amber-700 dark:text-amber-300">
-          New highlights will be added to <strong>{activeNotebook.name}</strong>.
-        </div>
+        <p className="mt-4 text-[12px] text-amber-800 dark:text-amber-200/90 rounded-lg bg-amber-50/90 dark:bg-amber-900/25 px-3 py-2">
+          New highlights go into{" "}
+          <span className="font-semibold">{activeNotebook.name}</span>.
+        </p>
       ) : (
-        <div className="mt-3 text-[12px] text-ink-400">
-          Highlights are saved as a per-page draft until you download them.
-          Switch to a notebook above to collect highlights from multiple pages
-          into one project file.
-        </div>
+        <p className="mt-4 text-[12px] text-ink-500 leading-relaxed">
+          Use <strong className="text-ink-700 dark:text-ink-300">New highlights →</strong>{" "}
+          above to stay per-page or route clips into a notebook project.
+        </p>
       )}
     </div>
   );
@@ -1284,18 +1409,20 @@ function LibraryPanel({
   }, [pages, query]);
 
   return (
-    <div className="px-4 py-3 space-y-3">
+    <div className="px-3 py-3 sm:px-4 space-y-3">
       <div className="flex items-center gap-2">
         <input
           value={query}
           onChange={(e) => onQuery(e.target.value)}
-          placeholder="Search across all notes…"
-          className="flex-1 text-xs px-2.5 py-1.5 border border-ink-200 dark:border-ink-700 rounded-md bg-white dark:bg-ink-900 focus:outline-none focus:ring-1 focus:ring-ink-300"
+          placeholder="Search highlights, notes, headings…"
+          aria-label="Search library"
+          className="focus-ring flex-1 text-xs px-3 py-2 border border-ink-200 dark:border-ink-700 rounded-lg bg-white dark:bg-ink-900 shadow-sm"
         />
         <button
+          type="button"
           onClick={() => sendMessage({ type: "export-all" })}
-          className="text-xs px-2.5 py-1.5 rounded-md bg-ink-900 text-white dark:bg-white dark:text-ink-900 hover:opacity-90 whitespace-nowrap">
-          Export all .md
+          className="focus-ring text-xs font-medium px-3 py-2 rounded-lg bg-ink-900 text-white dark:bg-white dark:text-ink-900 hover:opacity-95 whitespace-nowrap">
+          Export all
         </button>
       </div>
 
@@ -1644,7 +1771,7 @@ function SettingsPanel({ pages }: { pages: PageEntry[] }) {
       </section>
 
       <section className="pt-2 text-[10px] text-ink-400">
-        v0.4.0 ·{" "}
+        v{EXTENSION_VERSION} ·{" "}
         <button
           onClick={() => {
             const md = libraryToMarkdown(pages);

@@ -2,9 +2,11 @@
 
 > Highlight any webpage and turn it into clean, contextual Markdown notes. Drafts persist across browser sessions. Download as `.md` whenever you want.
 
+**Chrome Web Store:** add your public listing URL here once live (helps GitHub visitors install in one click).
+
 [AUTHOR's POV](https://github.com/0xmuon/notes-maker/blob/main/AUTHOR'S-POV.md)
 
-A Chrome extension built with [Plasmo](https://www.plasmo.com/) + React + TypeScript + Tailwind. Designed for one job: making it effortless to capture passages from blogs and articles into a single, well-formatted Markdown notebook,and have them highlighted on browser whenever you open 'em.
+A Chrome extension built with [Plasmo](https://www.plasmo.com/) + React + TypeScript + Tailwind. Designed for one job: making it effortless to capture passages from blogs and articles into a single, well-formatted Markdown notebook, and have them highlighted in the browser whenever you open them.
 
 ---
 
